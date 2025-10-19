@@ -64,6 +64,14 @@ export async function fetchLyrics(
 
       console.log(`Attempt ${i + 1} returned no results, trying next strategy...`);
     } catch (error) {
+      const axiosError = error as { response?: { status?: number; data?: unknown } };
+      if (axiosError.response?.status === 403) {
+        console.error(`❌ 403 FORBIDDEN: Your Genius API token is invalid or unauthorized`);
+        console.error(`Token starts with: ${GENIUS_ACCESS_TOKEN.substring(0, 20)}...`);
+        console.error(`Please verify your GENIUS_ACCESS_TOKEN in .env.local`);
+        // Don't retry on 403 - it won't work
+        return null;
+      }
       console.error(`❌ Error on attempt ${i + 1}:`, error);
       if (i === searchStrategies.length - 1) {
         console.error('All search strategies failed');
