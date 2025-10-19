@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   // If no lyrics found, return mock lyrics for demo
   if (!lyrics) {
     return NextResponse.json({
-      lyrics: createMockLyrics(duration),
+      lyrics: createMockLyrics(duration, trackName),
       mock: true,
     });
   }
