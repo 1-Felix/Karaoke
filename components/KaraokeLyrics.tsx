@@ -75,6 +75,28 @@ export default function KaraokeLyrics({
     setShowButton(true);
   };
 
+  const getAdaptiveFontSize = (text: string, isActive: boolean, isPast: boolean) => {
+    const length = text.length;
+
+    if (isActive) {
+      // Active line - scale based on character count
+      if (length > 100) return { fontSize: 'clamp(2rem, 40vw / ' + length + ', 4.5rem)' };
+      if (length > 60) return { fontSize: 'clamp(2.5rem, 40vw / ' + length + ', 4.5rem)' };
+      if (length > 40) return { fontSize: 'clamp(3rem, 40vw / ' + length + ', 4.5rem)' };
+      return { fontSize: 'clamp(3rem, 40vw / ' + (length || 1) + ', 4.5rem)' };
+    } else if (isPast) {
+      // Past line
+      if (length > 100) return { fontSize: 'clamp(1rem, 40vw / ' + length + ', 1.875rem)' };
+      if (length > 60) return { fontSize: 'clamp(1.25rem, 40vw / ' + length + ', 1.875rem)' };
+      return { fontSize: 'clamp(1.25rem, 40vw / ' + (length || 1) + ', 1.875rem)' };
+    } else {
+      // Future line
+      if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
+      if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
+      return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
+    }
+  };
+
   const visibleLines = 5;
   const startIndex = Math.max(0, currentLineIndex - 1);
   const displayLines = lyrics.slice(startIndex, startIndex + visibleLines);
@@ -114,12 +136,13 @@ export default function KaraokeLyrics({
         <p className="text-2xl text-gray-300">{artistName}</p>
       </div>
 
-      <div className="space-y-6 w-full max-w-4xl">
+      <div className="space-y-6 w-full max-w-4xl px-4">
         {displayLines.map((line, index) => {
           const globalIndex = startIndex + index;
           const isActive = globalIndex === currentLineIndex;
           const isPast = globalIndex < currentLineIndex;
           const isFuture = globalIndex > currentLineIndex;
+          const adaptiveStyle = getAdaptiveFontSize(line.text, isActive, isPast);
 
           return (
             <div
@@ -127,11 +150,13 @@ export default function KaraokeLyrics({
               className={`
                 text-center
                 transition-all duration-700 ease-out
-                ${isActive ? 'text-7xl font-bold text-yellow-300 opacity-100 translate-y-0 scale-105' : ''}
-                ${isPast ? 'text-3xl text-gray-600 opacity-30 -translate-y-2 scale-95' : ''}
-                ${isFuture ? 'text-4xl text-gray-400 opacity-60 translate-y-2 scale-100' : ''}
+                px-4
+                ${isActive ? 'font-bold text-yellow-300 opacity-100 translate-y-0 scale-105' : ''}
+                ${isPast ? 'text-gray-600 opacity-30 -translate-y-2 scale-95' : ''}
+                ${isFuture ? 'text-gray-400 opacity-60 translate-y-2 scale-100' : ''}
               `}
               style={{
+                ...adaptiveStyle,
                 transitionProperty: 'all',
                 transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
               }}
