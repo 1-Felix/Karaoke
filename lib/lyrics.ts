@@ -21,30 +21,58 @@ export async function fetchLyrics(
 
   console.log('✓ GENIUS_ACCESS_TOKEN is configured');
 
-  try {
-    // Search for the song on Genius
-    const options = {
+  // Try multiple search strategies
+  const searchStrategies = [
+    // Strategy 1: Exact search with optimizeQuery
+    {
       apiKey: GENIUS_ACCESS_TOKEN,
       title: trackName,
       artist: artistName,
       optimizeQuery: true,
-    };
+    },
+    // Strategy 2: Without optimizeQuery
+    {
+      apiKey: GENIUS_ACCESS_TOKEN,
+      title: trackName,
+      artist: artistName,
+      optimizeQuery: false,
+    },
+    // Strategy 3: Just the first artist (for songs with multiple artists)
+    {
+      apiKey: GENIUS_ACCESS_TOKEN,
+      title: trackName,
+      artist: artistName.split(',')[0].split('&')[0].trim(),
+      optimizeQuery: true,
+    },
+  ];
 
-    console.log('Searching Genius API with options:', options);
-    const lyrics = await getLyrics(options);
+  for (let i = 0; i < searchStrategies.length; i++) {
+    const options = searchStrategies[i];
+    try {
+      console.log(`Attempt ${i + 1}: Searching Genius with:`, {
+        title: options.title,
+        artist: options.artist,
+        optimizeQuery: options.optimizeQuery,
+      });
 
-    if (!lyrics) {
-      console.log(`❌ No lyrics found for: "${trackName}" by ${artistName}`);
-      return null;
+      const lyrics = await getLyrics(options);
+
+      if (lyrics) {
+        console.log(`✓ Lyrics found on attempt ${i + 1}! Length: ${lyrics.length} characters`);
+        return createTimedLyrics(lyrics, duration);
+      }
+
+      console.log(`Attempt ${i + 1} returned no results, trying next strategy...`);
+    } catch (error) {
+      console.error(`❌ Error on attempt ${i + 1}:`, error);
+      if (i === searchStrategies.length - 1) {
+        console.error('All search strategies failed');
+      }
     }
-
-    console.log(`✓ Lyrics found! Length: ${lyrics.length} characters`);
-    // Convert plain text lyrics to timed lyrics
-    return createTimedLyrics(lyrics, duration);
-  } catch (error) {
-    console.error('❌ Error fetching lyrics from Genius:', error);
-    return null;
   }
+
+  console.log(`❌ No lyrics found after ${searchStrategies.length} attempts for: "${trackName}" by ${artistName}`);
+  return null;
 }
 
 // Helper to split plain text lyrics into timed lines
