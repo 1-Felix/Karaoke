@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm create next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --use-pnpm)",
+      "Bash(pnpm init)",
+      "Bash(pnpm add next@latest react@latest react-dom@latest)",
+      "Bash(pnpm add -D typescript @types/react @types/node tailwindcss postcss autoprefixer)",
+      "Bash(pnpm add next-auth@latest)",
+      "Bash(npx tailwindcss init -p)",
+      "Bash(pnpm exec tailwindcss init -p)",
+      "Bash(test -f .gitignore)",
+      "Bash(pnpm add cheerio genius-lyrics-api)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
