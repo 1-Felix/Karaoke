@@ -6,7 +6,7 @@ A minimal and modern Next.js application that displays lyrics in karaoke style f
 
 - 🎵 Automatic sync with Spotify playback from any device
 - 🎤 Karaoke-style lyrics display with highlighting
-- 🎼 Real-time lyrics fetching from Genius API
+- 🎼 Real-time synced lyrics from LRCLIB API
 - 🔐 Secure Spotify OAuth authentication
 - 🎨 Beautiful gradient background with smooth animations
 - 📱 No controls or settings - just pure lyrics display
@@ -36,18 +36,7 @@ pnpm install
    - **Redirect URI**: `http://localhost:3000/api/auth/callback/spotify`
 4. Save your app and note down the **Client ID** and **Client Secret**
 
-### 4. Set Up Genius API (for lyrics)
-
-1. Go to [Genius API Clients](https://genius.com/api-clients)
-2. Sign in or create a Genius account
-3. Click "New API Client"
-4. Fill in the app details:
-   - **App Name**: Spotify Karaoke
-   - **App Website URL**: `http://localhost:3000` (or your website)
-5. Once created, click "Generate Access Token"
-6. Copy your **Access Token** (you'll need this for the next step)
-
-### 5. Configure Environment Variables
+### 4. Configure Environment Variables
 
 1. Copy the example environment file:
    ```bash
@@ -58,7 +47,6 @@ pnpm install
    ```env
    SPOTIFY_CLIENT_ID=your_client_id_here
    SPOTIFY_CLIENT_SECRET=your_client_secret_here
-   GENIUS_ACCESS_TOKEN=your_genius_access_token_here
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=your_random_secret_here
    ```
@@ -68,7 +56,7 @@ pnpm install
    openssl rand -base64 32
    ```
 
-### 6. Run the Development Server
+### 5. Run the Development Server
 
 ```bash
 pnpm dev
@@ -86,17 +74,22 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## How It Works
 
 - The app polls Spotify's API every 3 seconds to check what's currently playing
-- When a new song is detected, it fetches the lyrics from Genius API
-- Lyrics are automatically split into timed segments based on song duration
+- When a new song is detected, it fetches synced lyrics from LRCLIB API
+- If synced lyrics are available, they're displayed with precise timing
+- If only plain lyrics are available, they're distributed evenly across the song duration
 - Lyrics are displayed in sync with the song's playback position
 - The current line is highlighted in large yellow text
 - Previous lines fade out while upcoming lines appear in gray
 
 ## Lyrics Integration
 
-This application uses the **Genius API** to fetch lyrics for songs playing on Spotify. The lyrics are automatically synchronized with the playback timeline by evenly distributing them across the song's duration.
+This application uses the **LRCLIB API** to fetch lyrics for songs playing on Spotify. LRCLIB provides:
 
-**Note:** If a song's lyrics aren't found on Genius, the app will display placeholder lyrics as a fallback.
+- **Synced Lyrics**: Precise timing data in LRC format for accurate karaoke display
+- **Plain Lyrics**: Fallback for songs without timing data (automatically distributed across song duration)
+- **No API Key Required**: Free, open API with no authentication needed
+
+**Note:** If a song's lyrics aren't found on LRCLIB, the app will display placeholder lyrics as a fallback.
 
 ## Tech Stack
 
@@ -105,8 +98,7 @@ This application uses the **Genius API** to fetch lyrics for songs playing on Sp
 - **Tailwind CSS** - Styling
 - **NextAuth.js** - Spotify OAuth
 - **Spotify Web API** - Currently playing track data
-- **Genius API** - Lyrics fetching
-- **genius-lyrics-api** - Genius API client library
+- **LRCLIB API** - Synced and plain lyrics fetching
 
 ## Deployment
 
@@ -114,9 +106,8 @@ To deploy to production:
 
 1. Update `NEXTAUTH_URL` in your environment variables to your production URL
 2. Add the production callback URL to your Spotify app settings (e.g., `https://yourdomain.com/api/auth/callback/spotify`)
-3. Update your Genius API client with the production URL
-4. Add all environment variables to your hosting platform
-5. Deploy to your preferred hosting platform (Vercel, Netlify, etc.)
+3. Add all environment variables to your hosting platform
+4. Deploy to your preferred hosting platform (Vercel, Netlify, etc.)
 
 ```bash
 pnpm build

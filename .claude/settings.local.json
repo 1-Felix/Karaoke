@@ -9,7 +9,8 @@
       "Bash(npx tailwindcss init -p)",
       "Bash(pnpm exec tailwindcss init -p)",
       "Bash(test -f .gitignore)",
-      "Bash(pnpm add cheerio genius-lyrics-api)"
+      "Bash(pnpm add cheerio genius-lyrics-api)",
+      "Bash(pnpm remove genius-lyrics-api cheerio)"
     ],
     "deny": [],
     "ask": []

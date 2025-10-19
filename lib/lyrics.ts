@@ -1,11 +1,18 @@
-import { getLyrics } from 'genius-lyrics-api';
-
 export interface LyricsLine {
   text: string;
   startTime: number; // in milliseconds
 }
 
-const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN || '';
+interface LRCLIBResponse {
+  id: number;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  duration: number;
+  instrumental: boolean;
+  plainLyrics: string;
+  syncedLyrics: string;
+}
 
 export async function fetchLyrics(
   trackName: string,
@@ -14,73 +21,82 @@ export async function fetchLyrics(
 ): Promise<LyricsLine[] | null> {
   console.log('Fetching lyrics for:', { trackName, artistName, duration });
 
-  if (!GENIUS_ACCESS_TOKEN) {
-    console.warn('⚠️ GENIUS_ACCESS_TOKEN not configured - using mock lyrics');
-    return null;
-  }
+  try {
+    // Build query parameters
+    const params = new URLSearchParams({
+      track_name: trackName,
+      artist_name: artistName,
+    });
 
-  console.log('✓ GENIUS_ACCESS_TOKEN is configured');
+    // Add duration if available (helps LRCLIB find the correct version)
+    if (duration > 0) {
+      // Convert milliseconds to seconds
+      params.append('duration', Math.floor(duration / 1000).toString());
+    }
 
-  // Try multiple search strategies
-  const searchStrategies = [
-    // Strategy 1: Exact search with optimizeQuery
-    {
-      apiKey: GENIUS_ACCESS_TOKEN,
-      title: trackName,
-      artist: artistName,
-      optimizeQuery: true,
-    },
-    // Strategy 2: Without optimizeQuery
-    {
-      apiKey: GENIUS_ACCESS_TOKEN,
-      title: trackName,
-      artist: artistName,
-      optimizeQuery: false,
-    },
-    // Strategy 3: Just the first artist (for songs with multiple artists)
-    {
-      apiKey: GENIUS_ACCESS_TOKEN,
-      title: trackName,
-      artist: artistName.split(',')[0].split('&')[0].trim(),
-      optimizeQuery: true,
-    },
-  ];
+    const url = `https://lrclib.net/api/get?${params.toString()}`;
+    console.log('Fetching from LRCLIB:', url);
 
-  for (let i = 0; i < searchStrategies.length; i++) {
-    const options = searchStrategies[i];
-    try {
-      console.log(`Attempt ${i + 1}: Searching Genius with:`, {
-        title: options.title,
-        artist: options.artist,
-        optimizeQuery: options.optimizeQuery,
-      });
+    const response = await fetch(url);
 
-      const lyrics = await getLyrics(options);
-
-      if (lyrics) {
-        console.log(`✓ Lyrics found on attempt ${i + 1}! Length: ${lyrics.length} characters`);
-        return createTimedLyrics(lyrics, duration);
-      }
-
-      console.log(`Attempt ${i + 1} returned no results, trying next strategy...`);
-    } catch (error) {
-      const axiosError = error as { response?: { status?: number; data?: unknown } };
-      if (axiosError.response?.status === 403) {
-        console.error(`❌ 403 FORBIDDEN: Your Genius API token is invalid or unauthorized`);
-        console.error(`Token starts with: ${GENIUS_ACCESS_TOKEN.substring(0, 20)}...`);
-        console.error(`Please verify your GENIUS_ACCESS_TOKEN in .env.local`);
-        // Don't retry on 403 - it won't work
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log('❌ No lyrics found in LRCLIB for:', { trackName, artistName });
         return null;
       }
-      console.error(`❌ Error on attempt ${i + 1}:`, error);
-      if (i === searchStrategies.length - 1) {
-        console.error('All search strategies failed');
+      console.error(`❌ LRCLIB API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data: LRCLIBResponse = await response.json();
+
+    if (data.instrumental) {
+      console.log('⚠️ Track is marked as instrumental');
+      return null;
+    }
+
+    // Prefer synced lyrics if available, otherwise use plain lyrics
+    if (data.syncedLyrics) {
+      console.log('✓ Found synced lyrics from LRCLIB!');
+      return parseSyncedLyrics(data.syncedLyrics);
+    } else if (data.plainLyrics) {
+      console.log('✓ Found plain lyrics from LRCLIB, creating timed lyrics');
+      return createTimedLyrics(data.plainLyrics, duration);
+    }
+
+    console.log('❌ No lyrics data in response');
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching lyrics from LRCLIB:', error);
+    return null;
+  }
+}
+
+// Parse synced lyrics in LRC format: [mm:ss.xx]lyrics
+function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
+  const lines = syncedLyrics.split('\n').filter(line => line.trim());
+  const lyricsLines: LyricsLine[] = [];
+
+  for (const line of lines) {
+    // Match LRC format: [mm:ss.xx] or [mm:ss.xxx]
+    const match = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/);
+    if (match) {
+      const minutes = parseInt(match[1]);
+      const seconds = parseInt(match[2]);
+      const centiseconds = parseInt(match[3]);
+      const text = match[4].trim();
+
+      // Convert to milliseconds
+      const startTime = (minutes * 60 + seconds) * 1000 + centiseconds * 10;
+
+      if (text) {
+        lyricsLines.push({ text, startTime });
       }
     }
   }
 
-  console.log(`❌ No lyrics found after ${searchStrategies.length} attempts for: "${trackName}" by ${artistName}`);
-  return null;
+  console.log(`Parsed ${lyricsLines.length} synced lyrics lines`);
+  return lyricsLines;
 }
 
 // Helper to split plain text lyrics into timed lines
