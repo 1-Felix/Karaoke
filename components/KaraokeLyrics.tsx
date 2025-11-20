@@ -80,10 +80,10 @@ export default function KaraokeLyrics({
 
     if (isActive) {
       // Active line - scale based on character count
-      if (length > 100) return { fontSize: 'clamp(2rem, 40vw / ' + length + ', 4.5rem)' };
-      if (length > 60) return { fontSize: 'clamp(2.5rem, 40vw / ' + length + ', 4.5rem)' };
-      if (length > 40) return { fontSize: 'clamp(3rem, 40vw / ' + length + ', 4.5rem)' };
-      return { fontSize: 'clamp(3rem, 40vw / ' + (length || 1) + ', 4.5rem)' };
+      if (length > 100) return { fontSize: 'clamp(2rem, 40vw / ' + length + ', 3.5rem)' };
+      if (length > 60) return { fontSize: 'clamp(2.5rem, 40vw / ' + length + ', 3.5rem)' };
+      if (length > 40) return { fontSize: 'clamp(3rem, 40vw / ' + length + ', 3.5rem)' };
+      return { fontSize: 'clamp(3rem, 40vw / ' + (length || 1) + ', 3.5rem)' };
     } else if (isPast) {
       // Past line
       if (length > 100) return { fontSize: 'clamp(1rem, 40vw / ' + length + ', 1.875rem)' };
@@ -97,8 +97,8 @@ export default function KaraokeLyrics({
     }
   };
 
-  const visibleLines = 5;
-  const startIndex = Math.max(0, currentLineIndex - 1);
+  const visibleLines = 7;
+  const startIndex = Math.max(0, currentLineIndex - 2);
   const displayLines = lyrics.slice(startIndex, startIndex + visibleLines);
 
   return (
@@ -151,7 +151,7 @@ export default function KaraokeLyrics({
                 text-center
                 transition-all duration-700 ease-out
                 px-4
-                ${isActive ? 'font-bold text-yellow-300 opacity-100 translate-y-0 scale-105' : ''}
+                ${isActive ? 'font-bold text-yellow-300 opacity-100 translate-y-0' : ''}
                 ${isPast ? 'text-gray-600 opacity-30 -translate-y-2 scale-95' : ''}
                 ${isFuture ? 'text-gray-400 opacity-60 translate-y-2 scale-100' : ''}
               `}
