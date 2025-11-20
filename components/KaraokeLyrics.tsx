@@ -75,29 +75,16 @@ export default function KaraokeLyrics({
     setShowButton(true);
   };
 
-  const getAdaptiveFontSize = (text: string, isActive: boolean, isPast: boolean) => {
+  const getAdaptiveFontSize = (text: string) => {
     const length = text.length;
 
-    if (isActive) {
-      // Active line - scale based on character count
-      if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
-      if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
-      return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
-    } else if (isPast) {
-      // Past line
-      if (length > 100) return { fontSize: 'clamp(1rem, 40vw / ' + length + ', 1.875rem)' };
-      if (length > 60) return { fontSize: 'clamp(1.25rem, 40vw / ' + length + ', 1.875rem)' };
-      return { fontSize: 'clamp(1.25rem, 40vw / ' + (length || 1) + ', 1.875rem)' };
-    } else {
-      // Future line
-      if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
-      if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
-      return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
-    }
+    if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
+    if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
+    return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
   };
 
   const visibleLines = 7;
-  const startIndex = Math.max(0, currentLineIndex - 2);
+  const startIndex = Math.max(0, currentLineIndex - 3);
   const displayLines = lyrics.slice(startIndex, startIndex + visibleLines);
 
   return (
@@ -141,7 +128,7 @@ export default function KaraokeLyrics({
           const isActive = globalIndex === currentLineIndex;
           const isPast = globalIndex < currentLineIndex;
           const isFuture = globalIndex > currentLineIndex;
-          const adaptiveStyle = getAdaptiveFontSize(line.text, isActive, isPast);
+          const adaptiveStyle = getAdaptiveFontSize(line.text);
 
           return (
             <div
@@ -151,7 +138,7 @@ export default function KaraokeLyrics({
                 transition-all duration-700 ease-out
                 px-4
                 ${isActive ? 'font-bold text-yellow-300 opacity-100 translate-y-0' : ''}
-                ${isPast ? 'text-gray-600 opacity-30 -translate-y-2 scale-95' : ''}
+                ${isPast ? 'text-gray-600 opacity-50 -translate-y-2 scale-95' : ''}
                 ${isFuture ? 'text-gray-400 opacity-60 translate-y-2 scale-100' : ''}
               `}
               style={{
