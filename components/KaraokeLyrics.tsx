@@ -80,10 +80,9 @@ export default function KaraokeLyrics({
 
     if (isActive) {
       // Active line - scale based on character count
-      if (length > 100) return { fontSize: 'clamp(2rem, 40vw / ' + length + ', 3.5rem)' };
-      if (length > 60) return { fontSize: 'clamp(2.5rem, 40vw / ' + length + ', 3.5rem)' };
-      if (length > 40) return { fontSize: 'clamp(3rem, 40vw / ' + length + ', 3.5rem)' };
-      return { fontSize: 'clamp(3rem, 40vw / ' + (length || 1) + ', 3.5rem)' };
+      if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
+      if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
+      return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
     } else if (isPast) {
       // Past line
       if (length > 100) return { fontSize: 'clamp(1rem, 40vw / ' + length + ', 1.875rem)' };
