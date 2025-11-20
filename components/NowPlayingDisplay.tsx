@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import KaraokeLyrics from './KaraokeLyrics';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 interface Track {
   id: string;
@@ -20,6 +21,8 @@ export default function NowPlayingDisplay() {
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  
+  useWakeLock(isPlaying);
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
