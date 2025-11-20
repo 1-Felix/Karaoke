@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LyricsLine {
   text: string;
@@ -23,6 +24,14 @@ export default function KaraokeLyrics({
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showButton, setShowButton] = useState(true);
+  
+  // Ref for the container to calculate center
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Refs for each line to calculate their positions
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // Vertical offset to center the active line
+  const [offsetY, setOffsetY] = useState(0);
 
   useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
@@ -37,6 +46,24 @@ export default function KaraokeLyrics({
       setCurrentLineIndex(index);
     }
   }, [currentTime, lyrics, currentLineIndex]);
+
+  // Calculate the offset to center the active line
+  useEffect(() => {
+    const container = containerRef.current;
+    const activeLine = lineRefs.current[currentLineIndex];
+
+    if (container && activeLine) {
+      const containerHeight = container.clientHeight;
+      const activeLineHeight = activeLine.clientHeight;
+      const activeLineOffset = activeLine.offsetTop;
+
+      // Calculate the Y translation needed to center the active line
+      // We want: activeLineOffset + translateY = containerHeight / 2 - activeLineHeight / 2
+      // So: translateY = (containerHeight / 2 - activeLineHeight / 2) - activeLineOffset
+      const newOffset = (containerHeight / 2 - activeLineHeight / 2) - activeLineOffset;
+      setOffsetY(newOffset);
+    }
+  }, [currentLineIndex, lyrics]); // Recalculate when index changes
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -75,21 +102,9 @@ export default function KaraokeLyrics({
     setShowButton(true);
   };
 
-  const getAdaptiveFontSize = (text: string) => {
-    const length = text.length;
-
-    if (length > 100) return { fontSize: 'clamp(1.5rem, 40vw / ' + length + ', 2.25rem)' };
-    if (length > 60) return { fontSize: 'clamp(1.75rem, 40vw / ' + length + ', 2.25rem)' };
-    return { fontSize: 'clamp(1.75rem, 40vw / ' + (length || 1) + ', 2.25rem)' };
-  };
-
-  const visibleLines = 7;
-  const startIndex = Math.max(0, currentLineIndex - 3);
-  const displayLines = lyrics.slice(startIndex, startIndex + visibleLines);
-
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-black to-blue-900 text-white p-8 relative"
+      className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-black to-blue-900 text-white p-8 relative overflow-hidden"
       onMouseMove={handleMouseMove}
       onTouchStart={handleMouseMove}
     >
@@ -117,43 +132,57 @@ export default function KaraokeLyrics({
         )}
       </button>
 
-      <div className="mb-12 text-center transition-all duration-500">
-        <h1 className="text-5xl font-bold mb-2 animate-pulse">{trackName}</h1>
-        <p className="text-2xl text-gray-300">{artistName}</p>
+      <div className="mb-8 text-center transition-all duration-500 z-10">
+        <h1 className="text-4xl font-bold mb-2">{trackName}</h1>
+        <p className="text-xl text-gray-300">{artistName}</p>
       </div>
 
-      <div className="space-y-6 w-full max-w-4xl px-4">
-        {displayLines.map((line, index) => {
-          const globalIndex = startIndex + index;
-          const isActive = globalIndex === currentLineIndex;
-          const isPast = globalIndex < currentLineIndex;
-          const isFuture = globalIndex > currentLineIndex;
-          const adaptiveStyle = getAdaptiveFontSize(line.text);
+      {/* Lyrics Container */}
+      <div 
+        ref={containerRef}
+        className="relative w-full max-w-4xl h-[60vh] overflow-hidden mask-image-gradient"
+        style={{
+           maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)',
+           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)'
+        }}
+      >
+        {/* Floating Indicator */}
+        <div className="absolute top-1/2 right-4 w-3 h-3 bg-white rounded-full transform -translate-y-1/2 shadow-[0_0_10px_rgba(255,255,255,0.8)] z-20" />
 
-          return (
-            <div
-              key={globalIndex}
-              className={`
-                text-center
-                transition-all duration-700 ease-out
-                px-4
-                ${isActive ? 'font-bold text-yellow-300 opacity-100 translate-y-0' : ''}
-                ${isPast ? 'text-gray-600 opacity-50 -translate-y-2 scale-95' : ''}
-                ${isFuture ? 'text-gray-400 opacity-60 translate-y-2 scale-100' : ''}
-              `}
-              style={{
-                ...adaptiveStyle,
-                transitionProperty: 'all',
-                transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-            >
-              {line.text}
-            </div>
-          );
-        })}
+        <motion.div
+          animate={{ y: offsetY }}
+          transition={{ type: "spring", stiffness: 100, damping: 20, mass: 0.5 }}
+          className="absolute top-0 left-0 w-full px-8"
+        >
+          {lyrics.map((line, index) => {
+            const isActive = index === currentLineIndex;
+            
+            return (
+              <motion.div
+                key={index}
+                ref={(el) => { lineRefs.current[index] = el; }}
+                className={`
+                  py-6 text-center transition-colors duration-300
+                  ${isActive ? 'text-white font-bold' : 'text-gray-500 font-medium'}
+                `}
+                initial={false}
+                animate={{
+                  opacity: isActive ? 1 : 0.3,
+                  scale: isActive ? 1.1 : 0.95,
+                  filter: isActive ? 'blur(0px)' : 'blur(1px)',
+                }}
+                transition={{ duration: 0.3 }}
+              >
+                <span className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block">
+                  {line.text}
+                </span>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
 
-      <div className="mt-12 text-sm text-gray-500 transition-opacity duration-300">
+      <div className="mt-8 text-sm text-gray-500 transition-opacity duration-300 z-10">
         {Math.floor(currentTime / 1000)}s / {Math.floor(lyrics[lyrics.length - 1]?.startTime / 1000)}s
       </div>
     </div>
