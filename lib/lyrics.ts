@@ -1,6 +1,7 @@
 export interface LyricsLine {
   text: string;
   startTime: number; // in milliseconds
+  translation?: string; // English translation for non-EN/DE lyrics
 }
 
 interface LRCLIBResponse {
@@ -19,7 +20,7 @@ export async function fetchLyrics(
   artistName: string,
   duration: number
 ): Promise<LyricsLine[] | null> {
-  console.log('Fetching lyrics for:', { trackName, artistName, duration });
+  console.log("Fetching lyrics for:", { trackName, artistName, duration });
 
   try {
     // Build query parameters
@@ -31,17 +32,17 @@ export async function fetchLyrics(
     // Add duration if available (helps LRCLIB find the correct version)
     if (duration > 0) {
       // Convert milliseconds to seconds
-      params.append('duration', Math.floor(duration / 1000).toString());
+      params.append("duration", Math.floor(duration / 1000).toString());
     }
 
     const url = `https://lrclib.net/api/get?${params.toString()}`;
-    console.log('Fetching from LRCLIB:', url);
+    console.log("Fetching from LRCLIB:", url);
 
     const response = await fetch(url);
 
     if (!response.ok) {
       if (response.status === 404) {
-        console.log('❌ No lyrics found in LRCLIB for:', { trackName, artistName });
+        console.log("❌ No lyrics found in LRCLIB for:", { trackName, artistName });
         return null;
       }
       console.error(`❌ LRCLIB API error: ${response.status} ${response.statusText}`);
@@ -51,30 +52,30 @@ export async function fetchLyrics(
     const data: LRCLIBResponse = await response.json();
 
     if (data.instrumental) {
-      console.log('⚠️ Track is marked as instrumental');
+      console.log("⚠️ Track is marked as instrumental");
       return null;
     }
 
     // Prefer synced lyrics if available, otherwise use plain lyrics
     if (data.syncedLyrics) {
-      console.log('✓ Found synced lyrics from LRCLIB!');
+      console.log("✓ Found synced lyrics from LRCLIB!");
       return parseSyncedLyrics(data.syncedLyrics);
     } else if (data.plainLyrics) {
-      console.log('✓ Found plain lyrics from LRCLIB, creating timed lyrics');
+      console.log("✓ Found plain lyrics from LRCLIB, creating timed lyrics");
       return createTimedLyrics(data.plainLyrics, duration);
     }
 
-    console.log('❌ No lyrics data in response');
+    console.log("❌ No lyrics data in response");
     return null;
   } catch (error) {
-    console.error('❌ Error fetching lyrics from LRCLIB:', error);
+    console.error("❌ Error fetching lyrics from LRCLIB:", error);
     return null;
   }
 }
 
 // Parse synced lyrics in LRC format: [mm:ss.xx]lyrics
 function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
-  const lines = syncedLyrics.split('\n').filter(line => line.trim());
+  const lines = syncedLyrics.split("\n").filter((line) => line.trim());
   const lyricsLines: LyricsLine[] = [];
 
   for (const line of lines) {
@@ -100,11 +101,8 @@ function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
 }
 
 // Helper to split plain text lyrics into timed lines
-export function createTimedLyrics(
-  lyrics: string,
-  duration: number
-): LyricsLine[] {
-  const lines = lyrics.split('\n').filter(line => line.trim());
+export function createTimedLyrics(lyrics: string, duration: number): LyricsLine[] {
+  const lines = lyrics.split("\n").filter((line) => line.trim());
   const timePerLine = duration / lines.length;
 
   return lines.map((text, index) => ({

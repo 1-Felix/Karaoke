@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import KaraokeLyrics from './KaraokeLyrics';
-import { useWakeLock } from '../hooks/useWakeLock';
+import { useEffect, useState } from "react";
+import KaraokeLyrics from "./KaraokeLyrics";
+import { useWakeLock } from "../hooks/useWakeLock";
 
 interface Track {
   id: string;
@@ -21,13 +21,13 @@ export default function NowPlayingDisplay() {
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  
+
   useWakeLock(isPlaying);
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
       try {
-        const response = await fetch('/api/now-playing');
+        const response = await fetch("/api/now-playing");
         const data = await response.json();
 
         if (data.playing && data.track) {
@@ -41,23 +41,39 @@ export default function NowPlayingDisplay() {
           setIsPlaying(false);
         }
       } catch (error) {
-        console.error('Error fetching now playing:', error);
+        console.error("Error fetching now playing:", error);
       }
     };
 
     const fetchLyrics = async (currentTrack: Track) => {
       try {
         const response = await fetch(
-          `/api/lyrics?track=${encodeURIComponent(
-            currentTrack.name
-          )}&artist=${encodeURIComponent(
+          `/api/lyrics?track=${encodeURIComponent(currentTrack.name)}&artist=${encodeURIComponent(
             currentTrack.artists[0].name
           )}&duration=${currentTrack.duration_ms}`
         );
         const data = await response.json();
-        setLyrics(data.lyrics || []);
+        const fetchedLyrics = data.lyrics || [];
+
+        // Fetch translations for non-English/German lyrics
+        if (fetchedLyrics.length > 0) {
+          try {
+            const translateResponse = await fetch("/api/translate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lyrics: fetchedLyrics }),
+            });
+            const translateData = await translateResponse.json();
+            setLyrics(translateData.lyrics || fetchedLyrics);
+          } catch (translateError) {
+            console.error("Error translating lyrics:", translateError);
+            setLyrics(fetchedLyrics);
+          }
+        } else {
+          setLyrics(fetchedLyrics);
+        }
       } catch (error) {
-        console.error('Error fetching lyrics:', error);
+        console.error("Error fetching lyrics:", error);
       }
     };
 
@@ -94,7 +110,7 @@ export default function NowPlayingDisplay() {
       lyrics={lyrics}
       currentTime={progress}
       trackName={track.name}
-      artistName={track.artists.map((a) => a.name).join(', ')}
+      artistName={track.artists.map((a) => a.name).join(", ")}
     />
   );
 }

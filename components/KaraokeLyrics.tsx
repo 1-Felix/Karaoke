@@ -1,11 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface LyricsLine {
   text: string;
   startTime: number;
+  translation?: string;
 }
 
 interface KaraokeLyricsProps {
@@ -24,22 +25,19 @@ export default function KaraokeLyrics({
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showButton, setShowButton] = useState(true);
-  
+
   // Ref for the container to calculate center
   const containerRef = useRef<HTMLDivElement>(null);
   // Refs for each line to calculate their positions
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
-  
+
   // Vertical offset to center the active line
   const [offsetY, setOffsetY] = useState(0);
 
   useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
       const nextLine = lyrics[i + 1];
-      return (
-        currentTime >= line.startTime &&
-        (!nextLine || currentTime < nextLine.startTime)
-      );
+      return currentTime >= line.startTime && (!nextLine || currentTime < nextLine.startTime);
     });
 
     if (index !== -1 && index !== currentLineIndex) {
@@ -60,7 +58,7 @@ export default function KaraokeLyrics({
       // Calculate the Y translation needed to center the active line
       // We want: activeLineOffset + translateY = containerHeight / 2 - activeLineHeight / 2
       // So: translateY = (containerHeight / 2 - activeLineHeight / 2) - activeLineOffset
-      const newOffset = (containerHeight / 2 - activeLineHeight / 2) - activeLineOffset;
+      const newOffset = containerHeight / 2 - activeLineHeight / 2 - activeLineOffset;
       setOffsetY(newOffset);
     }
   }, [currentLineIndex, lyrics]); // Recalculate when index changes
@@ -70,9 +68,9 @@ export default function KaraokeLyrics({
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
 
@@ -94,7 +92,7 @@ export default function KaraokeLyrics({
         await document.exitFullscreen();
       }
     } catch (error) {
-      console.error('Fullscreen error:', error);
+      console.error("Fullscreen error:", error);
     }
   };
 
@@ -117,17 +115,43 @@ export default function KaraokeLyrics({
           text-white rounded-full p-3
           transition-all duration-300 ease-in-out
           backdrop-blur-sm
-          ${showButton ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}
+          ${
+            showButton
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-4 pointer-events-none"
+          }
         `}
-        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
       >
         {isFullscreen ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
           </svg>
         )}
       </button>
@@ -138,17 +162,16 @@ export default function KaraokeLyrics({
       </div>
 
       {/* Lyrics Container */}
-      <div 
+      <div
         ref={containerRef}
         className="relative w-full max-w-4xl h-[60vh] overflow-hidden mask-image-gradient"
         style={{
-           maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)',
-           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)'
+          maskImage:
+            "linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)",
         }}
       >
-        {/* Floating Indicator */}
-        <div className="absolute top-1/2 right-4 w-3 h-3 bg-white rounded-full transform -translate-y-1/2 shadow-[0_0_10px_rgba(255,255,255,0.8)] z-20" />
-
         <motion.div
           animate={{ y: offsetY }}
           transition={{ type: "spring", stiffness: 100, damping: 20, mass: 0.5 }}
@@ -156,26 +179,33 @@ export default function KaraokeLyrics({
         >
           {lyrics.map((line, index) => {
             const isActive = index === currentLineIndex;
-            
+
             return (
               <motion.div
                 key={index}
-                ref={(el) => { lineRefs.current[index] = el; }}
+                ref={(el) => {
+                  lineRefs.current[index] = el;
+                }}
                 className={`
                   py-6 text-center transition-colors duration-300
-                  ${isActive ? 'text-white font-bold' : 'text-gray-500 font-medium'}
+                  ${isActive ? "text-white font-bold" : "text-gray-500 font-medium"}
                 `}
                 initial={false}
                 animate={{
                   opacity: isActive ? 1 : 0.3,
                   scale: isActive ? 1.1 : 0.95,
-                  filter: isActive ? 'blur(0px)' : 'blur(1px)',
+                  filter: isActive ? "blur(0px)" : "blur(1px)",
                 }}
                 transition={{ duration: 0.3 }}
               >
                 <span className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block">
                   {line.text}
                 </span>
+                {line.translation && (
+                  <span className="text-sm sm:text-base text-gray-400 mt-1 block opacity-70 font-normal">
+                    {line.translation}
+                  </span>
+                )}
               </motion.div>
             );
           })}
@@ -183,7 +213,8 @@ export default function KaraokeLyrics({
       </div>
 
       <div className="mt-8 text-sm text-gray-500 transition-opacity duration-300 z-10">
-        {Math.floor(currentTime / 1000)}s / {Math.floor(lyrics[lyrics.length - 1]?.startTime / 1000)}s
+        {Math.floor(currentTime / 1000)}s /{" "}
+        {Math.floor(lyrics[lyrics.length - 1]?.startTime / 1000)}s
       </div>
     </div>
   );
