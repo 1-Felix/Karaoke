@@ -147,7 +147,7 @@ export default function NowPlayingDisplay() {
   return (
     <div className="relative">
       {/* Source indicator */}
-      <div className="absolute top-4 right-4 z-50 px-3 py-1 bg-black/50 rounded-lg text-white text-sm flex items-center gap-2">
+      <div className="absolute top-4 left-4 z-50 px-3 py-1 bg-black/50 rounded-lg text-white text-sm flex items-center gap-2">
         {source === 'spotify' ? (
           <>
             <span className="text-green-400">●</span> Spotify
