@@ -1,8 +1,8 @@
 const HA_URL = process.env.HA_URL;
 const HA_TOKEN = process.env.HA_TOKEN;
 // Offset in ms to sync lyrics with actual audio (negative = lyrics earlier, positive = lyrics later)
-// Default -3500ms to compensate for Music Assistant -> speaker latency
-const HA_SYNC_OFFSET_MS = parseInt(process.env.HA_SYNC_OFFSET_MS || '-3500', 10);
+// Default -4500ms to compensate for Music Assistant -> speaker latency
+const HA_SYNC_OFFSET_MS = parseInt(process.env.HA_SYNC_OFFSET_MS || '-4500', 10);
 
 export interface HAMediaPlayerState {
   entity_id: string;
