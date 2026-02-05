@@ -16,30 +16,67 @@ interface LyricsLine {
   startTime: number;
 }
 
+type PlaybackSource = 'spotify' | 'homeassistant' | null;
+
 export default function NowPlayingDisplay() {
   const [track, setTrack] = useState<Track | null>(null);
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [source, setSource] = useState<PlaybackSource>(null);
+  const [haConfigured, setHaConfigured] = useState(false);
+  const [haPlayer, setHaPlayer] = useState<string | null>(null);
 
   useWakeLock(isPlaying);
+
+  // Check if HA is configured on mount
+  useEffect(() => {
+    fetch("/api/ha-players")
+      .then(res => res.json())
+      .then(data => setHaConfigured(data.configured === true))
+      .catch(() => setHaConfigured(false));
+  }, []);
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
       try {
-        const response = await fetch("/api/now-playing");
-        const data = await response.json();
+        // Try Spotify first
+        const spotifyResponse = await fetch("/api/now-playing");
+        const spotifyData = await spotifyResponse.json();
 
-        if (data.playing && data.track) {
-          if (!track || track.id !== data.track.id) {
-            setTrack(data.track);
-            fetchLyrics(data.track);
+        if (spotifyData.playing && spotifyData.track) {
+          // Spotify is playing
+          if (source !== 'spotify' || !track || track.id !== spotifyData.track.id) {
+            setTrack(spotifyData.track);
+            setSource('spotify');
+            fetchLyrics(spotifyData.track);
           }
-          setProgress(data.progress);
+          setProgress(spotifyData.progress);
           setIsPlaying(true);
-        } else {
-          setIsPlaying(false);
+          return;
         }
+
+        // Spotify not playing, try Home Assistant if configured
+        if (haConfigured) {
+          const haResponse = await fetch("/api/now-playing-ha");
+          const haData = await haResponse.json();
+
+          if (haData.playing && haData.track) {
+            // HA is playing
+            if (source !== 'homeassistant' || !track || track.id !== haData.track.id) {
+              setTrack(haData.track);
+              setSource('homeassistant');
+              setHaPlayer(haData.source_player);
+              fetchLyrics(haData.track);
+            }
+            setProgress(haData.progress);
+            setIsPlaying(true);
+            return;
+          }
+        }
+
+        // Nothing playing
+        setIsPlaying(false);
       } catch (error) {
         console.error("Error fetching now playing:", error);
       }
@@ -81,7 +118,7 @@ export default function NowPlayingDisplay() {
     const interval = setInterval(fetchNowPlaying, 3000);
 
     return () => clearInterval(interval);
-  }, [track]);
+  }, [track, source, haConfigured]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -99,18 +136,34 @@ export default function NowPlayingDisplay() {
         <div className="text-center">
           <div className="text-6xl mb-4">🎵</div>
           <h2 className="text-3xl font-light">Waiting for music...</h2>
-          <p className="text-gray-400 mt-4">Play a song on Spotify to see lyrics</p>
+          <p className="text-gray-400 mt-4">
+            Play a song on Spotify{haConfigured ? " or through Home Assistant" : ""} to see lyrics
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <KaraokeLyrics
-      lyrics={lyrics}
-      currentTime={progress}
-      trackName={track.name}
-      artistName={track.artists.map((a) => a.name).join(", ")}
-    />
+    <div className="relative">
+      {/* Source indicator */}
+      <div className="absolute top-4 right-4 z-50 px-3 py-1 bg-black/50 rounded-lg text-white text-sm flex items-center gap-2">
+        {source === 'spotify' ? (
+          <>
+            <span className="text-green-400">●</span> Spotify
+          </>
+        ) : (
+          <>
+            <span className="text-blue-400">●</span> Home Assistant
+          </>
+        )}
+      </div>
+      <KaraokeLyrics
+        lyrics={lyrics}
+        currentTime={progress}
+        trackName={track.name}
+        artistName={track.artists.map((a) => a.name).join(", ")}
+      />
+    </div>
   );
 }
