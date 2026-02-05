@@ -13,12 +13,12 @@ export async function GET() {
   try {
     const nowPlaying = await getCurrentlyPlaying(session.accessToken);
 
-    if (!nowPlaying) {
+    if (!nowPlaying || !nowPlaying.item) {
       return NextResponse.json({ playing: false });
     }
 
     return NextResponse.json({
-      playing: true,
+      playing: nowPlaying.is_playing,  // Use actual play state, not just track presence
       track: nowPlaying.item,
       progress: nowPlaying.progress_ms,
     });
