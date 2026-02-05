@@ -120,10 +120,12 @@ export async function getCurrentlyPlayingHA(
     }
   }
 
+  const mediaTitle = attrs.media_title!; // We've already checked this exists above
+  
   return {
     item: {
-      id: `ha-${player.entity_id}-${attrs.media_title}`,
-      name: attrs.media_title,
+      id: `ha-${player.entity_id}-${mediaTitle}`,
+      name: mediaTitle,
       artists: [{ name: attrs.media_artist || 'Unknown Artist' }],
       album: {
         name: attrs.media_album_name || '',
