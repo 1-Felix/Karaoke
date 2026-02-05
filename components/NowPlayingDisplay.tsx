@@ -24,18 +24,8 @@ export default function NowPlayingDisplay() {
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [source, setSource] = useState<PlaybackSource>(null);
-  const [haConfigured, setHaConfigured] = useState(false);
-  const [haPlayer, setHaPlayer] = useState<string | null>(null);
 
   useWakeLock(isPlaying);
-
-  // Check if HA is configured on mount
-  useEffect(() => {
-    fetch("/api/ha-players")
-      .then(res => res.json())
-      .then(data => setHaConfigured(data.configured === true))
-      .catch(() => setHaConfigured(false));
-  }, []);
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
@@ -56,8 +46,8 @@ export default function NowPlayingDisplay() {
           return;
         }
 
-        // Spotify not playing, try Home Assistant if configured
-        if (haConfigured) {
+        // Spotify not playing, try Home Assistant as fallback
+        try {
           const haResponse = await fetch("/api/now-playing-ha");
           const haData = await haResponse.json();
 
@@ -66,13 +56,14 @@ export default function NowPlayingDisplay() {
             if (source !== 'homeassistant' || !track || track.id !== haData.track.id) {
               setTrack(haData.track);
               setSource('homeassistant');
-              setHaPlayer(haData.source_player);
               fetchLyrics(haData.track);
             }
             setProgress(haData.progress);
             setIsPlaying(true);
             return;
           }
+        } catch {
+          // HA not configured or error, ignore
         }
 
         // Nothing playing
@@ -118,7 +109,7 @@ export default function NowPlayingDisplay() {
     const interval = setInterval(fetchNowPlaying, 3000);
 
     return () => clearInterval(interval);
-  }, [track, source, haConfigured]);
+  }, [track, source]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -137,7 +128,7 @@ export default function NowPlayingDisplay() {
           <div className="text-6xl mb-4">🎵</div>
           <h2 className="text-3xl font-light">Waiting for music...</h2>
           <p className="text-gray-400 mt-4">
-            Play a song on Spotify{haConfigured ? " or through Home Assistant" : ""} to see lyrics
+            Play a song to see lyrics
           </p>
         </div>
       </div>
