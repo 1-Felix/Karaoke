@@ -25,14 +25,18 @@ interface HAPlayer {
   is_playing: boolean;
 }
 
-export default function HANowPlayingDisplay() {
+interface HANowPlayingDisplayProps {
+  defaultPlayer?: string;
+}
+
+export default function HANowPlayingDisplay({ defaultPlayer }: HANowPlayingDisplayProps) {
   const [players, setPlayers] = useState<HAPlayer[]>([]);
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(defaultPlayer || null);
   const [track, setTrack] = useState<Track | null>(null);
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showPlayerSelect, setShowPlayerSelect] = useState(true);
+  const [showPlayerSelect, setShowPlayerSelect] = useState(!defaultPlayer);
 
   useWakeLock(isPlaying);
 
