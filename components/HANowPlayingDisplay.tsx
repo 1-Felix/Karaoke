@@ -205,7 +205,7 @@ export default function HANowPlayingDisplay({ defaultPlayer }: HANowPlayingDispl
     <div className="relative">
       <button
         onClick={() => setShowPlayerSelect(true)}
-        className="absolute top-4 right-4 z-50 px-3 py-1 bg-black/50 hover:bg-black/70 rounded-lg text-white text-sm transition-all"
+        className="absolute top-4 left-4 z-50 px-3 py-1 bg-black/50 hover:bg-black/70 rounded-lg text-white text-sm transition-all"
       >
         📺 {players.find(p => p.entity_id === selectedPlayer)?.friendly_name}
       </button>

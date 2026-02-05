@@ -1,5 +1,8 @@
 const HA_URL = process.env.HA_URL;
 const HA_TOKEN = process.env.HA_TOKEN;
+// Offset in ms to sync lyrics with actual audio (negative = lyrics earlier, positive = lyrics later)
+// Default -3500ms to compensate for Music Assistant -> speaker latency
+const HA_SYNC_OFFSET_MS = parseInt(process.env.HA_SYNC_OFFSET_MS || '-3500', 10);
 
 export interface HAMediaPlayerState {
   entity_id: string;
@@ -118,6 +121,9 @@ export async function getCurrentlyPlayingHA(
       const elapsed = Date.now() - updatedAt;
       progress_ms += elapsed;
     }
+    
+    // Apply sync offset to compensate for MA -> speaker latency
+    progress_ms = Math.max(0, progress_ms + HA_SYNC_OFFSET_MS);
   }
 
   const mediaTitle = attrs.media_title!; // We've already checked this exists above
