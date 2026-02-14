@@ -111,23 +111,24 @@ export function createTimedLyrics(lyrics: string, duration: number): LyricsLine[
   }));
 }
 
-// For demo purposes, create mock lyrics based on track duration
+// Create placeholder lyrics when none are found
 export function createMockLyrics(duration: number, trackName?: string): LyricsLine[] {
   const mockLines = trackName
     ? [
-        `♪ Now Playing: ${trackName}`,
+        "♪ ♪ ♪",
         "",
-        "Lyrics not found on Genius",
+        "No lyrics available",
+        "for this song",
         "",
-        "Try a different song",
-        "or check your Genius API token",
+        "♪ ♪ ♪",
       ]
     : [
-        "♪ Waiting for lyrics...",
+        "♪ Waiting for music...",
         "",
-        "Play a song on Spotify",
+        "Play a song",
         "and lyrics will appear here",
-        "in karaoke style",
+        "",
+        "♪ ♪ ♪",
       ];
 
   const timePerLine = duration / mockLines.length;

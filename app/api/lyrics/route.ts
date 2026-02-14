@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Try to fetch real lyrics from Genius
+  // Try to fetch real lyrics from LRCLIB
   const lyrics = await fetchLyrics(trackName, artistName, duration);
 
-  // If no lyrics found, return mock lyrics for demo
+  // If no lyrics found, return placeholder
   if (!lyrics) {
     return NextResponse.json({
       lyrics: createMockLyrics(duration, trackName),
