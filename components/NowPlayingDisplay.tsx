@@ -21,6 +21,7 @@ type PlaybackSource = 'spotify' | 'homeassistant' | null;
 export default function NowPlayingDisplay() {
   const [track, setTrack] = useState<Track | null>(null);
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
+  const [titleTranslation, setTitleTranslation] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [source, setSource] = useState<PlaybackSource>(null);
@@ -83,22 +84,20 @@ export default function NowPlayingDisplay() {
         const data = await response.json();
         const fetchedLyrics = data.lyrics || [];
 
-        // Fetch translations for non-English/German lyrics
-        if (fetchedLyrics.length > 0) {
-          try {
-            const translateResponse = await fetch("/api/translate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ lyrics: fetchedLyrics }),
-            });
-            const translateData = await translateResponse.json();
-            setLyrics(translateData.lyrics || fetchedLyrics);
-          } catch (translateError) {
-            console.error("Error translating lyrics:", translateError);
-            setLyrics(fetchedLyrics);
-          }
-        } else {
+        // Fetch translations for non-English/German lyrics and title
+        try {
+          const translateResponse = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lyrics: fetchedLyrics, title: currentTrack.name }),
+          });
+          const translateData = await translateResponse.json();
+          setLyrics(translateData.lyrics || fetchedLyrics);
+          setTitleTranslation(translateData.titleTranslation);
+        } catch (translateError) {
+          console.error("Error translating:", translateError);
           setLyrics(fetchedLyrics);
+          setTitleTranslation(undefined);
         }
       } catch (error) {
         console.error("Error fetching lyrics:", error);
@@ -153,6 +152,7 @@ export default function NowPlayingDisplay() {
         lyrics={lyrics}
         currentTime={progress}
         trackName={track.name}
+        trackNameTranslation={titleTranslation}
         artistName={track.artists.map((a) => a.name).join(", ")}
       />
     </div>

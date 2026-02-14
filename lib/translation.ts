@@ -158,3 +158,15 @@ export async function translateLyrics(
 
   return results;
 }
+
+/**
+ * Translate a song title if it needs translation (not English/German)
+ */
+export async function translateTitle(title: string): Promise<string | null> {
+  if (!title.trim() || !needsTranslation(title)) {
+    return null;
+  }
+  
+  const sourceLang = detectSourceLang(title);
+  return translateText(title, sourceLang);
+}

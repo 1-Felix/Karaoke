@@ -13,6 +13,7 @@ interface KaraokeLyricsProps {
   lyrics: LyricsLine[];
   currentTime: number;
   trackName: string;
+  trackNameTranslation?: string;
   artistName: string;
 }
 
@@ -20,6 +21,7 @@ export default function KaraokeLyrics({
   lyrics,
   currentTime,
   trackName,
+  trackNameTranslation,
   artistName,
 }: KaraokeLyricsProps) {
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
@@ -157,7 +159,10 @@ export default function KaraokeLyrics({
       </button>
 
       <div className="mb-8 text-center transition-all duration-500 z-10">
-        <h1 className="text-4xl font-bold mb-2">{trackName}</h1>
+        <h1 className="text-4xl font-bold mb-1">{trackName}</h1>
+        {trackNameTranslation && (
+          <p className="text-lg text-gray-400 mb-2 opacity-70">{trackNameTranslation}</p>
+        )}
         <p className="text-xl text-gray-300">{artistName}</p>
       </div>
 
