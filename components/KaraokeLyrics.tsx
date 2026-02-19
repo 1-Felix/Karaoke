@@ -9,12 +9,15 @@ interface LyricsLine {
   translation?: string;
 }
 
+type TranslationSource = 'official' | 'auto' | 'none' | null;
+
 interface KaraokeLyricsProps {
   lyrics: LyricsLine[];
   currentTime: number;
   trackName: string;
   trackNameTranslation?: string;
   artistName: string;
+  translationSource?: TranslationSource;
 }
 
 export default function KaraokeLyrics({
@@ -23,6 +26,7 @@ export default function KaraokeLyrics({
   trackName,
   trackNameTranslation,
   artistName,
+  translationSource,
 }: KaraokeLyricsProps) {
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -164,6 +168,16 @@ export default function KaraokeLyrics({
           <p className="text-lg text-gray-400 mb-2 opacity-70">{trackNameTranslation}</p>
         )}
         <p className="text-xl text-gray-300">{artistName}</p>
+        {translationSource && translationSource !== 'none' && (
+          <span className={`
+            inline-block mt-3 px-3 py-1 rounded-full text-xs font-medium
+            ${translationSource === 'official' 
+              ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+              : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'}
+          `}>
+            {translationSource === 'official' ? '🌐 Official Translation' : '🤖 Auto Translation'}
+          </span>
+        )}
       </div>
 
       {/* Lyrics Container */}

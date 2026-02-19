@@ -17,11 +17,13 @@ interface LyricsLine {
 }
 
 type PlaybackSource = 'spotify' | 'homeassistant' | null;
+type TranslationSource = 'official' | 'auto' | 'none' | null;
 
 export default function NowPlayingDisplay() {
   const [track, setTrack] = useState<Track | null>(null);
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [titleTranslation, setTitleTranslation] = useState<string | undefined>(undefined);
+  const [translationSource, setTranslationSource] = useState<TranslationSource>(null);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [source, setSource] = useState<PlaybackSource>(null);
@@ -85,19 +87,26 @@ export default function NowPlayingDisplay() {
         const fetchedLyrics = data.lyrics || [];
 
         // Fetch translations for non-English/German lyrics and title
+        // First tries official LRCLIB translations, then falls back to auto-translate
         try {
           const translateResponse = await fetch("/api/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lyrics: fetchedLyrics, title: currentTrack.name }),
+            body: JSON.stringify({ 
+              lyrics: fetchedLyrics, 
+              title: currentTrack.name,
+              artist: currentTrack.artists[0].name 
+            }),
           });
           const translateData = await translateResponse.json();
           setLyrics(translateData.lyrics || fetchedLyrics);
           setTitleTranslation(translateData.titleTranslation);
+          setTranslationSource(translateData.translationSource || 'none');
         } catch (translateError) {
           console.error("Error translating:", translateError);
           setLyrics(fetchedLyrics);
           setTitleTranslation(undefined);
+          setTranslationSource(null);
         }
       } catch (error) {
         console.error("Error fetching lyrics:", error);
@@ -154,6 +163,7 @@ export default function NowPlayingDisplay() {
         trackName={track.name}
         trackNameTranslation={titleTranslation}
         artistName={track.artists.map((a) => a.name).join(", ")}
+        translationSource={translationSource}
       />
     </div>
   );

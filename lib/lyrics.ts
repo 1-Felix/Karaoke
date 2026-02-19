@@ -15,6 +15,17 @@ interface LRCLIBResponse {
   syncedLyrics: string;
 }
 
+interface LRCLIBSearchResult {
+  id: number;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  duration: number;
+  instrumental: boolean;
+  syncedLyrics: string | null;
+  plainLyrics: string | null;
+}
+
 export async function fetchLyrics(
   trackName: string,
   artistName: string,
@@ -74,7 +85,7 @@ export async function fetchLyrics(
 }
 
 // Parse synced lyrics in LRC format: [mm:ss.xx]lyrics
-function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
+export function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
   const lines = syncedLyrics.split("\n").filter((line) => line.trim());
   const lyricsLines: LyricsLine[] = [];
 
@@ -109,6 +120,98 @@ export function createTimedLyrics(lyrics: string, duration: number): LyricsLine[
     text,
     startTime: Math.floor(index * timePerLine),
   }));
+}
+
+/**
+ * Search LRCLIB for an official English translation of a song.
+ * Looks for tracks with "English ver.", "English Version", etc.
+ */
+export async function fetchOfficialTranslation(
+  trackName: string,
+  artistName: string
+): Promise<LyricsLine[] | null> {
+  console.log("Searching for official English translation:", { trackName, artistName });
+
+  try {
+    // Search for English versions
+    const searchQueries = [
+      `${trackName} English`,
+      `${trackName} (English ver.)`,
+      `${trackName} (English Version)`,
+    ];
+
+    for (const query of searchQueries) {
+      const params = new URLSearchParams({
+        q: `${query} ${artistName}`,
+      });
+
+      const url = `https://lrclib.net/api/search?${params.toString()}`;
+      const response = await fetch(url);
+
+      if (!response.ok) continue;
+
+      const results: LRCLIBSearchResult[] = await response.json();
+
+      // Find a matching English version
+      const englishVersion = results.find((result) => {
+        const name = result.trackName.toLowerCase();
+        const artist = result.artistName.toLowerCase();
+        return (
+          artist.includes(artistName.toLowerCase()) &&
+          (name.includes("english ver") ||
+            name.includes("english version") ||
+            name.includes("(en)") ||
+            name.includes("[english]"))
+        );
+      });
+
+      if (englishVersion?.syncedLyrics) {
+        console.log("✓ Found official English translation:", englishVersion.trackName);
+        return parseSyncedLyrics(englishVersion.syncedLyrics);
+      }
+    }
+
+    console.log("❌ No official English translation found");
+    return null;
+  } catch (error) {
+    console.error("❌ Error searching for English translation:", error);
+    return null;
+  }
+}
+
+/**
+ * Merge original lyrics with English translation lyrics.
+ * Matches lines by closest timestamp.
+ */
+export function mergeWithTranslations(
+  originalLyrics: LyricsLine[],
+  translationLyrics: LyricsLine[]
+): LyricsLine[] {
+  if (!translationLyrics.length) return originalLyrics;
+
+  return originalLyrics.map((line) => {
+    // Find the closest translation line by timestamp
+    let closestTranslation: LyricsLine | null = null;
+    let minDiff = Infinity;
+
+    for (const transLine of translationLyrics) {
+      const diff = Math.abs(transLine.startTime - line.startTime);
+      // Allow up to 2 seconds difference for matching
+      if (diff < minDiff && diff < 2000) {
+        minDiff = diff;
+        closestTranslation = transLine;
+      }
+    }
+
+    if (closestTranslation && closestTranslation.text !== line.text) {
+      return {
+        ...line,
+        translation: closestTranslation.text,
+      };
+    }
+
+    return line;
+  });
 }
 
 // Create placeholder lyrics when none are found
