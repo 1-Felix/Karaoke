@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import KaraokeLyrics from "./KaraokeLyrics";
 import { useWakeLock } from "../hooks/useWakeLock";
+import { usePlaybackTime } from "../hooks/usePlaybackTime";
 
 interface Track {
   id: string;
@@ -16,19 +17,25 @@ interface LyricsLine {
   startTime: number;
 }
 
-type PlaybackSource = 'spotify' | 'homeassistant' | null;
-type TranslationSource = 'official' | 'auto' | 'none' | null;
+type PlaybackSource = "spotify" | "homeassistant" | null;
+type TranslationSource = "official" | "auto" | "none" | null;
 
 export default function NowPlayingDisplay() {
   const [track, setTrack] = useState<Track | null>(null);
   const [lyrics, setLyrics] = useState<LyricsLine[]>([]);
   const [titleTranslation, setTitleTranslation] = useState<string | undefined>(undefined);
   const [translationSource, setTranslationSource] = useState<TranslationSource>(null);
-  const [progress, setProgress] = useState(0);
+  const [serverProgress, setServerProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [source, setSource] = useState<PlaybackSource>(null);
 
   useWakeLock(isPlaying);
+
+  // Smooth playback time interpolation between API polls
+  const displayTime = usePlaybackTime({
+    serverPosition: serverProgress,
+    isPlaying,
+  });
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
@@ -39,12 +46,12 @@ export default function NowPlayingDisplay() {
 
         if (spotifyData.playing && spotifyData.track) {
           // Spotify is playing
-          if (source !== 'spotify' || !track || track.id !== spotifyData.track.id) {
+          if (source !== "spotify" || !track || track.id !== spotifyData.track.id) {
             setTrack(spotifyData.track);
-            setSource('spotify');
+            setSource("spotify");
             fetchLyrics(spotifyData.track);
           }
-          setProgress(spotifyData.progress);
+          setServerProgress(spotifyData.progress);
           setIsPlaying(true);
           return;
         }
@@ -56,12 +63,12 @@ export default function NowPlayingDisplay() {
 
           if (haData.playing && haData.track) {
             // HA is playing
-            if (source !== 'homeassistant' || !track || track.id !== haData.track.id) {
+            if (source !== "homeassistant" || !track || track.id !== haData.track.id) {
               setTrack(haData.track);
-              setSource('homeassistant');
+              setSource("homeassistant");
               fetchLyrics(haData.track);
             }
-            setProgress(haData.progress);
+            setServerProgress(haData.progress);
             setIsPlaying(true);
             return;
           }
@@ -80,8 +87,8 @@ export default function NowPlayingDisplay() {
       try {
         const response = await fetch(
           `/api/lyrics?track=${encodeURIComponent(currentTrack.name)}&artist=${encodeURIComponent(
-            currentTrack.artists[0].name
-          )}&duration=${currentTrack.duration_ms}`
+            currentTrack.artists[0].name,
+          )}&duration=${currentTrack.duration_ms}`,
         );
         const data = await response.json();
         const fetchedLyrics = data.lyrics || [];
@@ -92,16 +99,16 @@ export default function NowPlayingDisplay() {
           const translateResponse = await fetch("/api/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              lyrics: fetchedLyrics, 
+            body: JSON.stringify({
+              lyrics: fetchedLyrics,
               title: currentTrack.name,
-              artist: currentTrack.artists[0].name 
+              artist: currentTrack.artists[0].name,
             }),
           });
           const translateData = await translateResponse.json();
           setLyrics(translateData.lyrics || fetchedLyrics);
           setTitleTranslation(translateData.titleTranslation);
-          setTranslationSource(translateData.translationSource || 'none');
+          setTranslationSource(translateData.translationSource || "none");
         } catch (translateError) {
           console.error("Error translating:", translateError);
           setLyrics(fetchedLyrics);
@@ -119,15 +126,8 @@ export default function NowPlayingDisplay() {
     return () => clearInterval(interval);
   }, [track, source]);
 
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      setProgress((prev) => prev + 1000);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+  // The usePlaybackTime hook handles smooth interpolation via requestAnimationFrame
+  // No need for the old setInterval-based progress counter
 
   if (!track || !isPlaying) {
     return (
@@ -135,9 +135,7 @@ export default function NowPlayingDisplay() {
         <div className="text-center">
           <div className="text-6xl mb-4">🎵</div>
           <h2 className="text-3xl font-light">Waiting for music...</h2>
-          <p className="text-gray-400 mt-4">
-            Play a song to see lyrics
-          </p>
+          <p className="text-gray-400 mt-4">Play a song to see lyrics</p>
         </div>
       </div>
     );
@@ -147,7 +145,7 @@ export default function NowPlayingDisplay() {
     <div className="relative">
       {/* Source indicator */}
       <div className="absolute top-4 left-4 z-50 px-3 py-1 bg-black/50 rounded-lg text-white text-sm flex items-center gap-2">
-        {source === 'spotify' ? (
+        {source === "spotify" ? (
           <>
             <span className="text-green-400">●</span> Spotify
           </>
@@ -159,7 +157,7 @@ export default function NowPlayingDisplay() {
       </div>
       <KaraokeLyrics
         lyrics={lyrics}
-        currentTime={progress}
+        currentTime={displayTime}
         trackName={track.name}
         trackNameTranslation={titleTranslation}
         artistName={track.artists.map((a) => a.name).join(", ")}

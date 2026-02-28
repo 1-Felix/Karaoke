@@ -9,7 +9,7 @@ interface LyricsLine {
   translation?: string;
 }
 
-type TranslationSource = 'official' | 'auto' | 'none' | null;
+type TranslationSource = "official" | "auto" | "none" | null;
 
 interface KaraokeLyricsProps {
   lyrics: LyricsLine[];
@@ -168,14 +168,18 @@ export default function KaraokeLyrics({
           <p className="text-lg text-gray-400 mb-2 opacity-70">{trackNameTranslation}</p>
         )}
         <p className="text-xl text-gray-300">{artistName}</p>
-        {translationSource && translationSource !== 'none' && (
-          <span className={`
+        {translationSource && translationSource !== "none" && (
+          <span
+            className={`
             inline-block mt-3 px-3 py-1 rounded-full text-xs font-medium
-            ${translationSource === 'official' 
-              ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-              : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'}
-          `}>
-            {translationSource === 'official' ? '🌐 Official Translation' : '🤖 Auto Translation'}
+            ${
+              translationSource === "official"
+                ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                : "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+            }
+          `}
+          >
+            {translationSource === "official" ? "🌐 Official Translation" : "🤖 Auto Translation"}
           </span>
         )}
       </div>
@@ -221,9 +225,23 @@ export default function KaraokeLyrics({
                   {line.text}
                 </span>
                 {line.translation && (
-                  <span className="text-sm sm:text-base text-gray-400 mt-1 block opacity-70 font-normal">
+                  <motion.span
+                    className="text-sm sm:text-base text-gray-400 mt-1 block font-normal"
+                    initial={false}
+                    animate={{
+                      opacity: isActive ? 0.85 : 0.5,
+                    }}
+                    transition={{
+                      duration: isActive ? 0.3 : 0.6,
+                      delay: isActive ? 0 : 0.3,
+                    }}
+                    style={{
+                      filter: "none",
+                      transform: "scale(1)",
+                    }}
+                  >
                     {line.translation}
-                  </span>
+                  </motion.span>
                 )}
               </motion.div>
             );

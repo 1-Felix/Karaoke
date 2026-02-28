@@ -29,7 +29,7 @@ interface LRCLIBSearchResult {
 export async function fetchLyrics(
   trackName: string,
   artistName: string,
-  duration: number
+  duration: number,
 ): Promise<LyricsLine[] | null> {
   console.log("Fetching lyrics for:", { trackName, artistName, duration });
 
@@ -95,11 +95,15 @@ export function parseSyncedLyrics(syncedLyrics: string): LyricsLine[] {
     if (match) {
       const minutes = parseInt(match[1]);
       const seconds = parseInt(match[2]);
-      const centiseconds = parseInt(match[3]);
+      const fractional = match[3];
       const text = match[4].trim();
 
-      // Convert to milliseconds
-      const startTime = (minutes * 60 + seconds) * 1000 + centiseconds * 10;
+      // Convert fractional part to milliseconds based on digit count:
+      // 2 digits = centiseconds (e.g., .45 = 450ms), 3 digits = milliseconds (e.g., .456 = 456ms)
+      const fractionalMs =
+        fractional.length === 2 ? parseInt(fractional) * 10 : parseInt(fractional);
+
+      const startTime = (minutes * 60 + seconds) * 1000 + fractionalMs;
 
       if (text) {
         lyricsLines.push({ text, startTime });
@@ -128,7 +132,7 @@ export function createTimedLyrics(lyrics: string, duration: number): LyricsLine[
  */
 export async function fetchOfficialTranslation(
   trackName: string,
-  artistName: string
+  artistName: string,
 ): Promise<LyricsLine[] | null> {
   console.log("Searching for official English translation:", { trackName, artistName });
 
@@ -181,58 +185,64 @@ export async function fetchOfficialTranslation(
 
 /**
  * Merge original lyrics with English translation lyrics.
- * Matches lines by closest timestamp.
+ * Uses line-index mapping as primary strategy (most translations are line-for-line),
+ * with ratio-based interpolation for mismatched line counts.
+ * Timestamp matching is used as a validation heuristic to skip bad pairings.
  */
 export function mergeWithTranslations(
   originalLyrics: LyricsLine[],
-  translationLyrics: LyricsLine[]
+  translationLyrics: LyricsLine[],
 ): LyricsLine[] {
   if (!translationLyrics.length) return originalLyrics;
 
-  return originalLyrics.map((line) => {
-    // Find the closest translation line by timestamp
-    let closestTranslation: LyricsLine | null = null;
-    let minDiff = Infinity;
+  const origLen = originalLyrics.length;
+  const transLen = translationLyrics.length;
 
-    for (const transLine of translationLyrics) {
-      const diff = Math.abs(transLine.startTime - line.startTime);
-      // Allow up to 2 seconds difference for matching
-      if (diff < minDiff && diff < 2000) {
-        minDiff = diff;
-        closestTranslation = transLine;
-      }
+  return originalLyrics.map((line, index) => {
+    // Primary: line-index mapping
+    // If counts match, map 1:1. Otherwise, use ratio-based interpolation.
+    let transIndex: number;
+    if (origLen === transLen) {
+      transIndex = index;
+    } else if (origLen === 1) {
+      // Single-line edge case: always map to first translation
+      transIndex = 0;
+    } else {
+      // Ratio mapping: proportionally find the closest translation line
+      transIndex = Math.round((index * (transLen - 1)) / (origLen - 1));
+      transIndex = Math.min(transIndex, transLen - 1);
     }
 
-    if (closestTranslation && closestTranslation.text !== line.text) {
-      return {
-        ...line,
-        translation: closestTranslation.text,
-      };
+    const transLine = translationLyrics[transIndex];
+
+    // Validation: skip if timestamp diff is too large (likely wrong pairing)
+    const timestampDiff = Math.abs(transLine.startTime - line.startTime);
+    if (timestampDiff > 5000) {
+      return line;
     }
 
-    return line;
+    // Skip if translation text matches original (redundant)
+    if (transLine.text.toLowerCase() === line.text.toLowerCase()) {
+      return line;
+    }
+
+    // Skip empty translations
+    if (!transLine.text.trim()) {
+      return line;
+    }
+
+    return {
+      ...line,
+      translation: transLine.text,
+    };
   });
 }
 
 // Create placeholder lyrics when none are found
 export function createMockLyrics(duration: number, trackName?: string): LyricsLine[] {
   const mockLines = trackName
-    ? [
-        "♪ ♪ ♪",
-        "",
-        "No lyrics available",
-        "for this song",
-        "",
-        "♪ ♪ ♪",
-      ]
-    : [
-        "♪ Waiting for music...",
-        "",
-        "Play a song",
-        "and lyrics will appear here",
-        "",
-        "♪ ♪ ♪",
-      ];
+    ? ["♪ ♪ ♪", "", "No lyrics available", "for this song", "", "♪ ♪ ♪"]
+    : ["♪ Waiting for music...", "", "Play a song", "and lyrics will appear here", "", "♪ ♪ ♪"];
 
   const timePerLine = duration / mockLines.length;
 
