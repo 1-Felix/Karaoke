@@ -91,6 +91,9 @@ export default function NowPlayingDisplay() {
           if (source !== "spotify" || !track || track.id !== spotifyData.track.id) {
             setTrack(spotifyData.track);
             setSource("spotify");
+            setLyrics([]);
+            setTitleTranslation(undefined);
+            setTranslationSource(null);
             fetchLyrics(spotifyData.track);
           }
           setServerProgress(spotifyData.progress);
@@ -108,6 +111,9 @@ export default function NowPlayingDisplay() {
             if (source !== "homeassistant" || !track || track.id !== haData.track.id) {
               setTrack(haData.track);
               setSource("homeassistant");
+              setLyrics([]);
+              setTitleTranslation(undefined);
+              setTranslationSource(null);
               fetchLyrics(haData.track);
             }
             setServerProgress(haData.progress);

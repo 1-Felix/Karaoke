@@ -45,6 +45,11 @@ export default function KaraokeLyrics({
   // Vertical offset to center the active line
   const [offsetY, setOffsetY] = useState(0);
 
+  // Reset line index when lyrics change (song switch)
+  useEffect(() => {
+    setCurrentLineIndex(0);
+  }, [lyrics]);
+
   useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
       const nextLine = lyrics[i + 1];
