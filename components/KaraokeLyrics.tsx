@@ -209,16 +209,7 @@ export default function KaraokeLyrics({
             const isActive = index === currentLineIndex;
             const isNext = index === currentLineIndex + 1;
 
-            // Sub-line progress sweep (task 1.1)
-            let lineProgress = 0;
-            if (isActive) {
-              const lineStart = line.startTime;
-              const nextLine = lyrics[index + 1];
-              const lineDuration = nextLine ? nextLine.startTime - lineStart : 5000; // Default 5s for last line
-              lineProgress = Math.max(0, Math.min(1, (currentTime - lineStart) / lineDuration));
-            }
-
-            // Anticipatory crossfade (tasks 2.1-2.4)
+            // Anticipatory crossfade (200ms before line boundary)
             const nextLine = lyrics[currentLineIndex + 1];
             let crossfadeProgress = 0;
             if (nextLine) {
@@ -238,9 +229,6 @@ export default function KaraokeLyrics({
               lineOpacity = 0.3 + crossfadeProgress * 0.5;
             }
 
-            // Gradient sweep percentage for active line
-            const sweepPercent = Math.round(lineProgress * 100);
-
             return (
               <motion.div
                 key={index}
@@ -249,7 +237,7 @@ export default function KaraokeLyrics({
                 }}
                 className={`
                   py-6 text-center transition-colors duration-300
-                  ${isActive ? "font-bold" : "text-gray-500 font-medium"}
+                  ${isActive ? "text-white font-bold" : "text-gray-500 font-medium"}
                 `}
                 initial={false}
                 animate={{
@@ -259,19 +247,7 @@ export default function KaraokeLyrics({
                 }}
                 transition={{ duration: 0.3 }}
               >
-                <span
-                  className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block"
-                  style={
-                    isActive
-                      ? {
-                          backgroundImage: `linear-gradient(to right, white ${sweepPercent}%, rgba(255,255,255,0.3) ${sweepPercent}%)`,
-                          WebkitBackgroundClip: "text",
-                          backgroundClip: "text",
-                          color: "transparent",
-                        }
-                      : undefined
-                  }
-                >
+                <span className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block">
                   {line.text}
                 </span>
                 {line.translation && (
@@ -328,18 +304,31 @@ export default function KaraokeLyrics({
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
+        {/* Active offset indicator dot */}
+        {userOffset !== 0 && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border-2 border-black" />
+        )}
       </button>
 
       {/* Offset slider panel */}
       {showOffset && (
-        <div className="fixed bottom-16 right-4 z-50 bg-black/70 backdrop-blur-md rounded-xl p-4 w-64 border border-white/10">
-          <div className="flex items-center justify-between mb-2">
+        <div className="fixed bottom-16 right-4 z-50 bg-black/70 backdrop-blur-md rounded-xl p-4 w-72 border border-white/10">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-gray-400 uppercase tracking-wider">Timing Offset</span>
-            <span className="text-sm font-mono text-white">
+            <span
+              className={`text-sm font-mono ${userOffset !== 0 ? "text-purple-300" : "text-white"}`}
+            >
               {userOffset > 0 ? "+" : ""}
               {userOffset}ms
             </span>
           </div>
+          <p className="text-xs text-gray-500 mb-3">
+            {userOffset > 0
+              ? "Lyrics appear earlier (ahead of music)"
+              : userOffset < 0
+                ? "Lyrics appear later (behind music)"
+                : "Drag to adjust lyrics timing"}
+          </p>
           <input
             type="range"
             min={-500}
@@ -350,15 +339,27 @@ export default function KaraokeLyrics({
             className="w-full accent-purple-500"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>-500ms</span>
+            <span>−500ms</span>
             <button
               onClick={() => onOffsetChange?.(0)}
-              className="text-purple-400 hover:text-purple-300"
+              className="text-purple-400 hover:text-purple-300 transition-colors"
             >
               Reset
             </button>
             <span>+500ms</span>
           </div>
+          {userOffset !== 0 && (
+            <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-400 font-mono">
+              <div className="flex justify-between">
+                <span>Raw time:</span>
+                <span>{((currentTime - userOffset) / 1000).toFixed(1)}s</span>
+              </div>
+              <div className="flex justify-between text-purple-300">
+                <span>Adjusted:</span>
+                <span>{(currentTime / 1000).toFixed(1)}s</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
