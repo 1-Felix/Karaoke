@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface LyricsLine {
   text: string;
@@ -18,6 +18,8 @@ interface KaraokeLyricsProps {
   trackNameTranslation?: string;
   artistName: string;
   translationSource?: TranslationSource;
+  userOffset?: number;
+  onOffsetChange?: (offset: number) => void;
 }
 
 export default function KaraokeLyrics({
@@ -27,10 +29,13 @@ export default function KaraokeLyrics({
   trackNameTranslation,
   artistName,
   translationSource,
+  userOffset = 0,
+  onOffsetChange,
 }: KaraokeLyricsProps) {
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showButton, setShowButton] = useState(true);
+  const [showOffset, setShowOffset] = useState(false);
 
   // Ref for the container to calculate center
   const containerRef = useRef<HTMLDivElement>(null);
@@ -202,6 +207,39 @@ export default function KaraokeLyrics({
         >
           {lyrics.map((line, index) => {
             const isActive = index === currentLineIndex;
+            const isNext = index === currentLineIndex + 1;
+
+            // Sub-line progress sweep (task 1.1)
+            let lineProgress = 0;
+            if (isActive) {
+              const lineStart = line.startTime;
+              const nextLine = lyrics[index + 1];
+              const lineDuration = nextLine ? nextLine.startTime - lineStart : 5000; // Default 5s for last line
+              lineProgress = Math.max(0, Math.min(1, (currentTime - lineStart) / lineDuration));
+            }
+
+            // Anticipatory crossfade (tasks 2.1-2.4)
+            const nextLine = lyrics[currentLineIndex + 1];
+            let crossfadeProgress = 0;
+            if (nextLine) {
+              const timeToNextLine = nextLine.startTime - currentTime;
+              if (timeToNextLine > 0 && timeToNextLine < 200) {
+                crossfadeProgress = 1 - timeToNextLine / 200;
+              }
+            }
+
+            // Compute opacity based on crossfade zone
+            let lineOpacity = isActive ? 1 : 0.3;
+            if (isActive && crossfadeProgress > 0) {
+              // Outgoing line: fade from 1.0 toward 0.7
+              lineOpacity = 1 - crossfadeProgress * 0.3;
+            } else if (isNext && crossfadeProgress > 0) {
+              // Incoming line: fade from 0.3 toward 0.8
+              lineOpacity = 0.3 + crossfadeProgress * 0.5;
+            }
+
+            // Gradient sweep percentage for active line
+            const sweepPercent = Math.round(lineProgress * 100);
 
             return (
               <motion.div
@@ -211,17 +249,29 @@ export default function KaraokeLyrics({
                 }}
                 className={`
                   py-6 text-center transition-colors duration-300
-                  ${isActive ? "text-white font-bold" : "text-gray-500 font-medium"}
+                  ${isActive ? "font-bold" : "text-gray-500 font-medium"}
                 `}
                 initial={false}
                 animate={{
-                  opacity: isActive ? 1 : 0.3,
+                  opacity: lineOpacity,
                   scale: isActive ? 1.1 : 0.95,
                   filter: isActive ? "blur(0px)" : "blur(1px)",
                 }}
                 transition={{ duration: 0.3 }}
               >
-                <span className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block">
+                <span
+                  className="text-2xl sm:text-3xl md:text-4xl leading-relaxed block"
+                  style={
+                    isActive
+                      ? {
+                          backgroundImage: `linear-gradient(to right, white ${sweepPercent}%, rgba(255,255,255,0.3) ${sweepPercent}%)`,
+                          WebkitBackgroundClip: "text",
+                          backgroundClip: "text",
+                          color: "transparent",
+                        }
+                      : undefined
+                  }
+                >
                   {line.text}
                 </span>
                 {line.translation && (
@@ -248,6 +298,69 @@ export default function KaraokeLyrics({
           })}
         </motion.div>
       </div>
+
+      {/* Offset slider toggle button */}
+      <button
+        onClick={() => setShowOffset(!showOffset)}
+        className={`
+          fixed bottom-4 right-4 z-50
+          bg-black bg-opacity-50 hover:bg-opacity-70
+          text-white rounded-full p-3
+          transition-all duration-300 ease-in-out
+          backdrop-blur-sm
+          ${
+            showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          }
+        `}
+        aria-label="Adjust timing offset"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      </button>
+
+      {/* Offset slider panel */}
+      {showOffset && (
+        <div className="fixed bottom-16 right-4 z-50 bg-black/70 backdrop-blur-md rounded-xl p-4 w-64 border border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-400 uppercase tracking-wider">Timing Offset</span>
+            <span className="text-sm font-mono text-white">
+              {userOffset > 0 ? "+" : ""}
+              {userOffset}ms
+            </span>
+          </div>
+          <input
+            type="range"
+            min={-500}
+            max={500}
+            step={10}
+            value={userOffset}
+            onChange={(e) => onOffsetChange?.(Number(e.target.value))}
+            className="w-full accent-purple-500"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>-500ms</span>
+            <button
+              onClick={() => onOffsetChange?.(0)}
+              className="text-purple-400 hover:text-purple-300"
+            >
+              Reset
+            </button>
+            <span>+500ms</span>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 text-sm text-gray-500 transition-opacity duration-300 z-10">
         {Math.floor(currentTime / 1000)}s /{" "}

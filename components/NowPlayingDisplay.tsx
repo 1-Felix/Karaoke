@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import KaraokeLyrics from "./KaraokeLyrics";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { usePlaybackTime } from "../hooks/usePlaybackTime";
+import { getTrackOffset, setTrackOffset } from "../lib/offsetStorage";
 
 interface Track {
   id: string;
@@ -28,6 +29,8 @@ export default function NowPlayingDisplay() {
   const [serverProgress, setServerProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [source, setSource] = useState<PlaybackSource>(null);
+  const [userOffset, setUserOffset] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useWakeLock(isPlaying);
 
@@ -36,6 +39,45 @@ export default function NowPlayingDisplay() {
     serverPosition: serverProgress,
     isPlaying,
   });
+
+  // Apply user offset for adjusted time
+  const adjustedTime = displayTime + userOffset;
+
+  // Compute next line start time for adaptive polling
+  const nextLineStartTime = useMemo(() => {
+    if (!lyrics.length) return null;
+    const currentIndex = lyrics.findIndex((line, i) => {
+      const nextLine = lyrics[i + 1];
+      return adjustedTime >= line.startTime && (!nextLine || adjustedTime < nextLine.startTime);
+    });
+    const nextLine = lyrics[currentIndex + 1];
+    return nextLine ? nextLine.startTime : null;
+  }, [lyrics, adjustedTime]);
+
+  // Derive a stable target interval that only changes when switching 1500↔3000
+  const targetInterval = useMemo(() => {
+    if (!nextLineStartTime) return 3000;
+    const timeToNext = nextLineStartTime - adjustedTime;
+    return timeToNext < 1500 && timeToNext > 0 ? 1500 : 3000;
+  }, [nextLineStartTime, adjustedTime]);
+
+  // Load saved offset when track changes
+  useEffect(() => {
+    if (track) {
+      setUserOffset(getTrackOffset(track.id));
+    }
+  }, [track?.id]);
+
+  // Handle offset change — save to localStorage
+  const handleOffsetChange = useCallback(
+    (offset: number) => {
+      setUserOffset(offset);
+      if (track) {
+        setTrackOffset(track.id, offset);
+      }
+    },
+    [track],
+  );
 
   useEffect(() => {
     const fetchNowPlaying = async () => {
@@ -121,10 +163,51 @@ export default function NowPlayingDisplay() {
     };
 
     fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, 3000);
+    intervalRef.current = setInterval(fetchNowPlaying, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [track, source]);
+
+  // Adaptive poll frequency — only recreate interval when targetInterval changes (1500↔3000)
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    // Clear existing and set new interval with the target frequency
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    const fetchNowPlaying = async () => {
+      try {
+        const spotifyResponse = await fetch("/api/now-playing");
+        const spotifyData = await spotifyResponse.json();
+        if (spotifyData.playing && spotifyData.track) {
+          setServerProgress(spotifyData.progress);
+          setIsPlaying(true);
+          return;
+        }
+        try {
+          const haResponse = await fetch("/api/now-playing-ha");
+          const haData = await haResponse.json();
+          if (haData.playing && haData.track) {
+            setServerProgress(haData.progress);
+            setIsPlaying(true);
+            return;
+          }
+        } catch {
+          /* HA not configured */
+        }
+        setIsPlaying(false);
+      } catch (error) {
+        console.error("Error fetching now playing:", error);
+      }
+    };
+
+    intervalRef.current = setInterval(fetchNowPlaying, targetInterval);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPlaying, targetInterval]);
 
   // The usePlaybackTime hook handles smooth interpolation via requestAnimationFrame
   // No need for the old setInterval-based progress counter
@@ -157,11 +240,13 @@ export default function NowPlayingDisplay() {
       </div>
       <KaraokeLyrics
         lyrics={lyrics}
-        currentTime={displayTime}
+        currentTime={adjustedTime}
         trackName={track.name}
         trackNameTranslation={titleTranslation}
         artistName={track.artists.map((a) => a.name).join(", ")}
         translationSource={translationSource}
+        userOffset={userOffset}
+        onOffsetChange={handleOffsetChange}
       />
     </div>
   );
