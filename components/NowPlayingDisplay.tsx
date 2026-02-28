@@ -16,6 +16,7 @@ interface Track {
 interface LyricsLine {
   text: string;
   startTime: number;
+  translation?: string;
 }
 
 type PlaybackSource = "spotify" | "homeassistant" | null;
@@ -31,6 +32,8 @@ export default function NowPlayingDisplay() {
   const [source, setSource] = useState<PlaybackSource>(null);
   const [userOffset, setUserOffset] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Track ID ref to discard stale lyrics fetches from previous songs
+  const currentTrackIdRef = useRef<string | null>(null);
 
   useWakeLock(isPlaying);
 
@@ -79,16 +82,86 @@ export default function NowPlayingDisplay() {
     [track],
   );
 
+  // Use refs for track/source so the polling effect can always read current values
+  // without needing them as dependencies (which caused the dual-effect conflict)
+  const trackRef = useRef<Track | null>(null);
+  const sourceRef = useRef<PlaybackSource>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+  useEffect(() => {
+    sourceRef.current = source;
+  }, [source]);
+
+  // Stable fetchLyrics callback (uses currentTrackIdRef to discard stale results)
+  const fetchLyrics = useCallback(async (currentTrack: Track) => {
+    const fetchTrackId = currentTrack.id;
+    try {
+      const response = await fetch(
+        `/api/lyrics?track=${encodeURIComponent(currentTrack.name)}&artist=${encodeURIComponent(
+          currentTrack.artists[0].name,
+        )}&duration=${currentTrack.duration_ms}`,
+      );
+      const data = await response.json();
+      const fetchedLyrics = data.lyrics || [];
+
+      // Discard results if song changed while we were fetching
+      if (currentTrackIdRef.current !== fetchTrackId) return;
+
+      // Fetch translations for non-English/German lyrics and title
+      try {
+        const translateResponse = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lyrics: fetchedLyrics,
+            title: currentTrack.name,
+            artist: currentTrack.artists[0].name,
+          }),
+        });
+        const translateData = await translateResponse.json();
+
+        // Discard results if song changed while translating
+        if (currentTrackIdRef.current !== fetchTrackId) return;
+
+        const translatedLyrics = translateData.lyrics || fetchedLyrics;
+        const hasTranslations = translatedLyrics.some((l: LyricsLine) => l.translation);
+        setLyrics(translatedLyrics);
+        setTitleTranslation(translateData.titleTranslation);
+        setTranslationSource(hasTranslations ? translateData.translationSource || "none" : "none");
+      } catch (translateError) {
+        console.error("Error translating:", translateError);
+        if (currentTrackIdRef.current !== fetchTrackId) return;
+        setLyrics(fetchedLyrics);
+        setTitleTranslation(undefined);
+        setTranslationSource(null);
+      }
+    } catch (error) {
+      console.error("Error fetching lyrics:", error);
+    }
+  }, []);
+
+  // Single consolidated polling effect — handles both track detection AND adaptive polling
   useEffect(() => {
     const fetchNowPlaying = async () => {
+      const currentTrack = trackRef.current;
+      const currentSource = sourceRef.current;
+
       try {
         // Try Spotify first
         const spotifyResponse = await fetch("/api/now-playing");
         const spotifyData = await spotifyResponse.json();
 
         if (spotifyData.playing && spotifyData.track) {
-          // Spotify is playing
-          if (source !== "spotify" || !track || track.id !== spotifyData.track.id) {
+          if (
+            currentSource !== "spotify" ||
+            !currentTrack ||
+            currentTrack.id !== spotifyData.track.id
+          ) {
+            // New track detected — update state and fetch lyrics
+            currentTrackIdRef.current = spotifyData.track.id;
             setTrack(spotifyData.track);
             setSource("spotify");
             setLyrics([]);
@@ -107,8 +180,12 @@ export default function NowPlayingDisplay() {
           const haData = await haResponse.json();
 
           if (haData.playing && haData.track) {
-            // HA is playing
-            if (source !== "homeassistant" || !track || track.id !== haData.track.id) {
+            if (
+              currentSource !== "homeassistant" ||
+              !currentTrack ||
+              currentTrack.id !== haData.track.id
+            ) {
+              currentTrackIdRef.current = haData.track.id;
               setTrack(haData.track);
               setSource("homeassistant");
               setLyrics([]);
@@ -131,89 +208,13 @@ export default function NowPlayingDisplay() {
       }
     };
 
-    const fetchLyrics = async (currentTrack: Track) => {
-      try {
-        const response = await fetch(
-          `/api/lyrics?track=${encodeURIComponent(currentTrack.name)}&artist=${encodeURIComponent(
-            currentTrack.artists[0].name,
-          )}&duration=${currentTrack.duration_ms}`,
-        );
-        const data = await response.json();
-        const fetchedLyrics = data.lyrics || [];
-
-        // Fetch translations for non-English/German lyrics and title
-        // First tries official LRCLIB translations, then falls back to auto-translate
-        try {
-          const translateResponse = await fetch("/api/translate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lyrics: fetchedLyrics,
-              title: currentTrack.name,
-              artist: currentTrack.artists[0].name,
-            }),
-          });
-          const translateData = await translateResponse.json();
-          setLyrics(translateData.lyrics || fetchedLyrics);
-          setTitleTranslation(translateData.titleTranslation);
-          setTranslationSource(translateData.translationSource || "none");
-        } catch (translateError) {
-          console.error("Error translating:", translateError);
-          setLyrics(fetchedLyrics);
-          setTitleTranslation(undefined);
-          setTranslationSource(null);
-        }
-      } catch (error) {
-        console.error("Error fetching lyrics:", error);
-      }
-    };
-
     fetchNowPlaying();
-    intervalRef.current = setInterval(fetchNowPlaying, 3000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [track, source]);
-
-  // Adaptive poll frequency — only recreate interval when targetInterval changes (1500↔3000)
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    // Clear existing and set new interval with the target frequency
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const fetchNowPlaying = async () => {
-      try {
-        const spotifyResponse = await fetch("/api/now-playing");
-        const spotifyData = await spotifyResponse.json();
-        if (spotifyData.playing && spotifyData.track) {
-          setServerProgress(spotifyData.progress);
-          setIsPlaying(true);
-          return;
-        }
-        try {
-          const haResponse = await fetch("/api/now-playing-ha");
-          const haData = await haResponse.json();
-          if (haData.playing && haData.track) {
-            setServerProgress(haData.progress);
-            setIsPlaying(true);
-            return;
-          }
-        } catch {
-          /* HA not configured */
-        }
-        setIsPlaying(false);
-      } catch (error) {
-        console.error("Error fetching now playing:", error);
-      }
-    };
-
     intervalRef.current = setInterval(fetchNowPlaying, targetInterval);
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, targetInterval]);
+  }, [targetInterval, fetchLyrics]);
 
   // The usePlaybackTime hook handles smooth interpolation via requestAnimationFrame
   // No need for the old setInterval-based progress counter
